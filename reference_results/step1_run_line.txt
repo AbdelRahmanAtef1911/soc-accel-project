@@ -1,0 +1,1 @@
+step1_sw.csv: 48 rows, 0 FAIL, 140s host time  [INFO,arch,TPU,pe,256,dn_bw,32,wzero,0,partition,gemm]

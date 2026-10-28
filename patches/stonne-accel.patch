@@ -1,0 +1,14 @@
+diff --git a/stonne/include/STONNEModel.h b/stonne/include/STONNEModel.h
+index f8a07542..8c04edd7 100644
+--- a/stonne/include/STONNEModel.h
++++ b/stonne/include/STONNEModel.h
+@@ -77,6 +77,9 @@ public:
+     Stonne (Config stonne_cfg);
+     ~Stonne();
+ 
++    // Added for the SystemC accelerator wrapper: cycles of the last run()
++    unsigned int getNCycles() const { return n_cycles; }
++
+     //General constructor. Generates mRNA configuration if enabled
+     void loadDNNLayer(Layer_t layer_type, std::string layer_name, unsigned int R, unsigned int S, unsigned int C, unsigned int K, unsigned int G,  unsigned int N, unsigned int X, unsigned int Y, unsigned int strides, address_t input_address, address_t filter_address, address_t output_address, Dataflow dataflow);
+ 

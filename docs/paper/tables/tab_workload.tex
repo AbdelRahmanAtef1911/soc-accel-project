@@ -1,0 +1,8 @@
+\begin{table}[t]\centering\footnotesize
+\caption{Workload: the INT8 layers of the three MLPerf Tiny models.}\label{tab:workload}
+\begin{tabular}{@{}lrrrrrr@{}}\toprule
+model & layers & CONV & PW & DW & FC & MMACs\\\midrule
+ResNet-8 & 10 & 9 & 0 & 0 & 1 & 12.50 \\
+DS-CNN & 10 & 1 & 4 & 4 & 1 & 2.66 \\
+MobileNetV1-0.25 & 28 & 1 & 13 & 13 & 1 & 7.49 \\
+\bottomrule\end{tabular}\end{table}

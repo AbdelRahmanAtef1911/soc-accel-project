@@ -1,0 +1,6 @@
+[accel] TPU, 256 PEs, dn_bw 32, DMA 4 B/cycle, burst 64 B + 10 cycles
+hello from RV32 on accel32-vp
+accelerator ID register = 1398033989 (STNE, ok)
+sum 0..999 = 499500 (ok)
+loop: simulated time 30046 cycles, ISS rdcycle 17008 cycles
+[accel32-vp] simulated time 352160 ns

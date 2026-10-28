@@ -1,0 +1,14 @@
+\begin{table}[t]\centering\scriptsize\setlength{\tabcolsep}{2pt}
+\caption{S0: STONNE alone, 256 multipliers each. Compute cycles and multiplier utilization (\%).}\label{tab:stonne}
+\begin{tabular}{@{}llrrrrrr@{}}\toprule
+layer & $M{\times}K{\times}N$ & TPU & MAERI & SIGMA & SIGMA & \multicolumn{2}{c}{util.\ (\%)}\\
+ & & 16$\times$16 & bw 256 & dense & 50\% z. & TPU & MAERI\\\midrule
+resnet8\_conv0 & 1024$\times$27$\times$16 & 3{,}968 & 2{,}061 & 4{,}118 & 2{,}058 & 44 & 84 \\
+resnet8\_conv1 & 1024$\times$144$\times$16 & 11{,}456 & 9{,}236 & 16{,}591 & 6{,}225 & 80 & 100 \\
+resnet8\_conv7 & 64$\times$576$\times$64 & 9{,}776 & 9{,}371 & 14{,}593 & 9{,}493 & 94 & 98 \\
+dscnn\_conv0 & 125$\times$40$\times$64 & 2{,}388 & 1{,}271 & 1{,}520 & 946 & 52 & 98 \\
+dscnn\_pw2 & 125$\times$64$\times$64 & 3{,}156 & 2{,}027 & 2{,}723 & 1{,}611 & 63 & 99 \\
+mbnet\_pw2 & 2304$\times$8$\times$16 & 6{,}192 & 2{,}315 & 4{,}618 & 4{,}618 & 19 & 50 \\
+mbnet\_pw14 & 36$\times$128$\times$128 & 3{,}816 & 2{,}379 & 3{,}246 & 1{,}855 & 60 & 97 \\
+mbnet\_pw26 & 9$\times$256$\times$256 & 4{,}544 & 2{,}582 & 6{,}197 & 3{,}590 & 51 & 89 \\
+\bottomrule\end{tabular}\end{table}

@@ -1,0 +1,18 @@
+\begin{table*}[t]\centering\footnotesize\setlength{\tabcolsep}{2.6pt}
+\caption{S5a--c (checked runs). 5a: ideal bus, CPU polls. 5b: interrupt + WFI, ideal bus. 5c: shared bus, cycle stealing (64-B bursts), interrupt + background work. Time change relative to 5a; ``free'' = share of the waiting time the CPU can use.}\label{tab:step5}
+\begin{tabular}{@{}llrrrrrr@{}}\toprule
+ & & \multicolumn{2}{c}{5a (poll, ideal)} & \multicolumn{2}{c}{5b (WFI)} & \multicolumn{2}{c}{5c (steal + BG)}\\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+model & mode & cycles & vs DMA & $\Delta$\% & free\% & $\Delta$\% & free\%\\\midrule
+ResNet-8 & DMA & 275{,}915 & 1.00$\times$ & +1.4 & 98 & +7.3 & 25 \\
+ & TILE & 284{,}822 & 0.97$\times$ & +1.4 & 98 & +6.9 & 25 \\
+ & DBUF & 229{,}542 & 1.20$\times$ & +1.7 & 98 & +8.4 & 11 \\
+\midrule
+DS-CNN & DMA & 169{,}883 & 1.00$\times$ & +2.3 & 97 & +9.9 & 15 \\
+ & TILE & 174{,}498 & 0.97$\times$ & +2.2 & 97 & +9.1 & 15 \\
+ & DBUF & 159{,}898 & 1.06$\times$ & +2.4 & 97 & +10.8 & 9 \\
+\midrule
+MobileNetV1-0.25 & DMA & 615{,}968 & 1.00$\times$ & +1.8 & 98 & +8.4 & 13 \\
+ & TILE & 636{,}084 & 0.97$\times$ & +1.7 & 98 & +8.6 & 14 \\
+ & DBUF & 594{,}404 & 1.04$\times$ & +1.8 & 98 & +9.1 & 9 \\
+\bottomrule\end{tabular}\end{table*}

@@ -1,0 +1,19 @@
+\begin{table*}[t]\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\caption{S1--S3: end-to-end cycles (DMA mode), speedup over software, and where the time goes (\% of total).}\label{tab:e2e}
+\begin{tabular}{@{}llrrrrrr@{}}\toprule
+model & design & cycles & speedup & im2col & CPU-only & DMA & compute\\\midrule
+ResNet-8 & S1 software & 383{,}321{,}507 & 1.0$\times$ & 0.0 & 100 & 0.0 & 0.0 \\
+ & S2 TPU 16$\times$16 & 11{,}698{,}611 & 32.8$\times$ & 96.3 & 0.0 & 3.2 & 0.5 \\
+ & S3a MAERI & 11{,}687{,}511 & 32.8$\times$ & 96.4 & 0.0 & 3.2 & 0.4 \\
+ & S3b MAERI + conv & 275{,}915 & 1{,}389$\times$ & 0.0 & 0.0 & 76.4 & 22.0 \\
+\midrule
+DS-CNN & S1 software & 106{,}535{,}249 & 1.0$\times$ & 0.0 & 100 & 0.0 & 0.0 \\
+ & S2 TPU 16$\times$16 & 17{,}159{,}591 & 6.2$\times$ & 2.4 & 97.0 & 0.5 & 0.1 \\
+ & S3a MAERI & 17{,}153{,}911 & 6.2$\times$ & 2.4 & 97.0 & 0.5 & 0.1 \\
+ & S3b MAERI + conv & 169{,}883 & 627$\times$ & 0.2 & 0.0 & 89.6 & 8.1 \\
+\midrule
+MobileNetV1-0.25 & S1 software & 276{,}812{,}977 & 1.0$\times$ & 0.0 & 100 & 0.0 & 0.0 \\
+ & S2 TPU 16$\times$16 & 49{,}581{,}882 & 5.6$\times$ & 5.5 & 93.7 & 0.8 & 0.1 \\
+ & S3a MAERI & 49{,}553{,}362 & 5.6$\times$ & 5.5 & 93.7 & 0.8 & 0.1 \\
+ & S3b MAERI + conv & 615{,}968 & 449$\times$ & 0.1 & 0.0 & 91.8 & 6.4 \\
+\bottomrule\end{tabular}\end{table*}

@@ -1,0 +1,68 @@
+[accel] TPU, 256 PEs, dn_bw 32, DMA 4 B/cycle, burst 64 B + 10 cycles
+ID register: 0x53544e45 (ok)
+tiny          CPU GEMM 4x16x4           | in     36 run     35 out     16 | ld      0 cmp     27 st      0 |   3.7% PASS
+tiny          DMA GEMM 4x16x4           | in      7 run    112 out      0 | ld     52 cmp     27 st     26 |   3.7% PASS
+resnet8_conv0 CPU GEMM 1024x27x16       | in   7024 run   3973 out  16384 | ld      0 cmp   3968 st      0 |  43.5% PASS
+resnet8_conv0 DMA GEMM 1024x27x16       | in      7 run  42011 out      0 | ld  11410 cmp   3968 st  26624 |  43.5% PASS
+dscnn_pw2     CPU GEMM 125x64x64        | in   3028 run   3159 out   8000 | ld      0 cmp   3156 st      0 |  63.4% PASS
+dscnn_pw2     DMA GEMM 125x64x64        | in      7 run  21078 out      0 | ld   4914 cmp   3156 st  13000 |  63.4% PASS
+dscnn_pw2_50z CPU GEMM 125x64x64 w0=50% | in   3028 run   3159 out   8000 | ld      0 cmp   3156 st      0 |  63.4% PASS
+dscnn_pw2_50z DMA GEMM 125x64x64 w0=50% | in      7 run  21078 out      0 | ld   4914 cmp   3156 st  13000 |  63.4% PASS
+resnet8_fc9   CPU GEMM 1x64x10          | in    180 run     79 out     10 | ld      0 cmp     77 st      0 |   3.2% PASS
+resnet8_fc9   DMA GEMM 1x64x10          | in      7 run    387 out      0 | ld    286 cmp     77 st     20 |   3.2% PASS
+CAPS register: GEMM yes, CONV no
+[accel] job rejected: OP_CONV needs the MAERI architecture
+conv3x3       CPU CONV on this architecture -> ERROR flag set (expected)
+[accel] job rejected: OP_CONV needs the MAERI architecture
+conv3x3       DMA CONV on this architecture -> ERROR flag set (expected)
+[accel] job rejected: does not fit the scratchpads
+oversized job -> ERROR flag set (expected)
+ALL TESTS PASSED (0 failures), simulated time 1410490 ns
+[accel] MAERI, 256 PEs, dn_bw 256, DMA 4 B/cycle, burst 64 B + 10 cycles
+ID register: 0x53544e45 (ok)
+tiny          CPU GEMM 4x16x4           | in     36 run     24 out     16 | ld      0 cmp     13 st      0 |   7.7% PASS
+tiny          DMA GEMM 4x16x4           | in      7 run    101 out      0 | ld     52 cmp     13 st     26 |   7.7% PASS
+resnet8_conv0 CPU GEMM 1024x27x16       | in   7024 run   2070 out  16384 | ld      0 cmp   2061 st      0 |  83.8% PASS
+resnet8_conv0 DMA GEMM 1024x27x16       | in      7 run  40097 out      0 | ld  11410 cmp   2061 st  26624 |  83.8% PASS
+dscnn_pw2     CPU GEMM 125x64x64        | in   3028 run   2037 out   8000 | ld      0 cmp   2027 st      0 |  98.7% PASS
+dscnn_pw2     DMA GEMM 125x64x64        | in      7 run  19945 out      0 | ld   4914 cmp   2027 st  13000 |  98.7% PASS
+dscnn_pw2_50z CPU GEMM 125x64x64 w0=50% | in   3028 run   2037 out   8000 | ld      0 cmp   2027 st      0 |  98.7% PASS
+dscnn_pw2_50z DMA GEMM 125x64x64 w0=50% | in      7 run  19945 out      0 | ld   4914 cmp   2027 st  13000 |  98.7% PASS
+resnet8_fc9   CPU GEMM 1x64x10          | in    180 run     46 out     10 | ld      0 cmp     39 st      0 |   6.4% PASS
+resnet8_fc9   DMA GEMM 1x64x10          | in      7 run    354 out      0 | ld    286 cmp     39 st     20 |   6.4% PASS
+CAPS register: GEMM yes, CONV yes
+conv3x3       CPU CONV 8x8x4 k3 s1      | in    150 run    156 out    513 | ld      0 cmp    154 st      0 |  46.8% PASS
+conv3x3       DMA CONV 8x8x4 k3 s1      | in     17 run   1223 out      1 | ld    226 cmp    154 st    832 |  46.8% PASS
+dscnn_conv0   CPU CONV 49x10x1 k10 s2   | in    777 run   1520 out   8001 | ld      0 cmp   1518 st      0 |  82.3% PASS
+dscnn_conv0   DMA CONV 49x10x1 k10 s2   | in     17 run  15765 out      1 | ld   1243 cmp   1518 st  13000 |  82.3% PASS
+resnet8_conv3 CPU CONV 32x32x16 k3 s2   | in   5262 run   5205 out   8193 | ld      0 cmp   5195 st      0 |  88.7% PASS
+resnet8_conv3 DMA CONV 32x32x16 k3 s2   | in     17 run  27040 out      1 | ld   8528 cmp   5195 st  13312 |  88.7% PASS
+mbnet_dw1     CPU DW 48x48x8 k3 s1      | in   4640 run   1553 out  18433 | ld      0 cmp   1547 st      0 |  41.9% PASS
+mbnet_dw1     DMA DW 48x48x8 k3 s1      | in     17 run  39030 out      1 | ld   7526 cmp   1547 st  29952 |  41.9% PASS
+dscnn_dw1     CPU DW 25x5x64 k3 s1      | in   2158 run   1047 out   8001 | ld      0 cmp   1040 st      0 |  27.0% PASS
+dscnn_dw1     DMA DW 25x5x64 k3 s1      | in     17 run  17525 out      1 | ld   3484 cmp   1040 st  13000 |  27.0% PASS
+mbnet_pw4     CPU CONV 24x24x16 k1 s1   | in   2446 run   2334 out  18433 | ld      0 cmp   2326 st      0 |  49.5% PASS
+mbnet_pw4     DMA CONV 24x24x16 k1 s1   | in     17 run  36236 out      1 | ld   3952 cmp   2326 st  29952 |  49.5% PASS
+[accel] job rejected: does not fit the scratchpads
+oversized job -> ERROR flag set (expected)
+ALL TESTS PASSED (0 failures), simulated time 3582680 ns
+[accel] SIGMA, 256 PEs, dn_bw 64, DMA 4 B/cycle, burst 64 B + 10 cycles
+ID register: 0x53544e45 (ok)
+tiny          CPU GEMM 4x16x4           | in     36 run     35 out     16 | ld      0 cmp     30 st      0 |   3.3% PASS
+tiny          DMA GEMM 4x16x4           | in      7 run    112 out      0 | ld     52 cmp     30 st     26 |   3.3% PASS
+resnet8_conv0 CPU GEMM 1024x27x16       | in   7024 run   8230 out  16384 | ld      0 cmp   8224 st      0 |  21.0% PASS
+resnet8_conv0 DMA GEMM 1024x27x16       | in      7 run  46268 out      0 | ld  11410 cmp   8224 st  26624 |  21.0% PASS
+dscnn_pw2     CPU GEMM 125x64x64        | in   3028 run   8263 out   8000 | ld      0 cmp   8257 st      0 |  24.2% PASS
+dscnn_pw2     DMA GEMM 125x64x64        | in      7 run  26182 out      0 | ld   4914 cmp   8257 st  13000 |  24.2% PASS
+dscnn_pw2_50z CPU GEMM 125x64x64 w0=50% | in   3028 run   4655 out   8000 | ld      0 cmp   4647 st      0 |  43.0% PASS
+dscnn_pw2_50z DMA GEMM 125x64x64 w0=50% | in      7 run  22563 out      0 | ld   4914 cmp   4647 st  13000 |  43.0% PASS
+resnet8_fc9   CPU GEMM 1x64x10          | in    180 run     68 out     10 | ld      0 cmp     59 st      0 |   4.2% PASS
+resnet8_fc9   DMA GEMM 1x64x10          | in      7 run    376 out      0 | ld    286 cmp     59 st     20 |   4.2% PASS
+CAPS register: GEMM yes, CONV no
+[accel] job rejected: OP_CONV needs the MAERI architecture
+conv3x3       CPU CONV on this architecture -> ERROR flag set (expected)
+[accel] job rejected: OP_CONV needs the MAERI architecture
+conv3x3       DMA CONV on this architecture -> ERROR flag set (expected)
+[accel] job rejected: does not fit the scratchpads
+oversized job -> ERROR flag set (expected)
+ALL TESTS PASSED (0 failures), simulated time 1627300 ns

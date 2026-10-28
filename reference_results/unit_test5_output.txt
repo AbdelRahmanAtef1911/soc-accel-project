@@ -1,0 +1,58 @@
+[accel] MAERI, 256 PEs, dn_bw 256, DMA 4 B/cycle, burst 64 B + 10 cycles
+ID register: 0x53544e45, CAPS 0x1f (tile yes, irq yes, shared bus yes)
+Part 1: tiling and double buffering (4 tiles), cycles START->DONE;
+        tiled = load + compute + store; dbuf -x% = that much faster than tiled
+resnet8_conv0 GEMM 1024x27x16      | one  40096 | tiled x4   40135 (= 11411+ 2100+ 26624) | dbuf  38035 - 5.2% | PASS
+dscnn_pw2     GEMM 125x64x64       | one  19942 | tiled x4   20023 (=  4915+ 2108+ 13000) | dbuf  17915 -10.5% | PASS
+mbnet_pw13    GEMM 9x256x256       | one  33887 | tiled x3   34443 (= 27561+ 3138+  3744) | dbuf  32039 - 7.0% | PASS
+conv3x3       CONV 8x8x4 k3x3 s1   | one   1213 | tiled x4    1379 (=   315+  232+   832) | dbuf   1153 -16.4% | PASS
+dscnn_conv0   CONV 49x10x1 k10x4 s2| one  15762 | tiled x4   16301 (=  1354+ 1947+ 13000) | dbuf  14787 - 9.3% | PASS
+resnet8_conv3 CONV 32x32x16 k3x3 s2| one  27036 | tiled x4   27885 (=  9153+ 5420+ 13312) | dbuf  22465 -19.4% | PASS
+mbnet_dw1     DW 48x48x8 k3x3 s1   | one  39026 | tiled x4   39995 (=  8463+ 1580+ 29952) | dbuf  38415 - 4.0% | PASS
+dscnn_dw1     DW 25x5x64 k3x3 s1   | one  17525 | tiled x4   18425 (=  4265+ 1160+ 13000) | dbuf  17265 - 6.3% | PASS
+tile sweep, resnet8_conv3 CONV 32x32x16 k3x3 s2:  2 tiles 22049  4 tiles 22465  8 tiles 23297  16 tiles 24961
+[accel] job rejected: a tile does not fit half a scratchpad (lower TILE_ROWS)
+dbuf with one 256 KB output tile -> ERROR flag set (expected)
+same job with 4 tiles -> PASS
+Part 2: completion interrupt
+polling job: 1016 STATUS polls, CPU saw DONE 19946 cycles after START   PASS
+interrupt job (dbuf): 0 polls, 1 interrupt(s), woke up 17919 cycles after START   PASS
+Part 3: bus ownership. Job dma_heavy GEMM 1024x64x16, one piece; the CPU either sleeps (WFI) or keeps
+reading memory (1 read + 1 cycle of work per loop) until the interrupt.
+DMA mode               CPU    |   job cyc  DMA wait | CPU reads   CPU txn  CPU wait  max wait | result
+block (burst 64 B)     sleep  |     57776         1 |         0         0         0         0 | PASS
+block (burst 64 B)     busy   |     57777         2 |      2058      2058     53662     26624 | PASS
+steal (burst 64 B)     sleep  |     57776         1 |         0         0         0         0 | PASS
+steal (burst 64 B)     busy   |     59838      2063 |      4119      4119     51601        26 | PASS
+steal (burst 4 B)      sleep  |    367376         1 |         0         0         0         0 | PASS
+steal (burst 4 B)      busy   |    400398     33023 |     35079     35079    330241        11 | PASS
+transparent            sleep  |     57776         1 |         0         0         0         0 | PASS
+transparent            busy   |    111439     53664 |     55719     55719         0         0 | PASS
+ALL TESTS PASSED (0 failures), simulated time 20375790 ns
+[accel] TPU, 256 PEs, dn_bw 32, DMA 4 B/cycle, burst 64 B + 10 cycles
+ID register: 0x53544e45, CAPS 0x1d (tile yes, irq yes, shared bus yes)
+Part 1: tiling and double buffering (4 tiles), cycles START->DONE;
+        tiled = load + compute + store; dbuf -x% = that much faster than tiled
+resnet8_conv0 GEMM 1024x27x16      | one  42003 | tiled x4   42003 (= 11411+ 3968+ 26624) | dbuf  38035 - 9.4% | PASS
+dscnn_pw2     GEMM 125x64x64       | one  21071 | tiled x4   21071 (=  4915+ 3156+ 13000) | dbuf  17915 -15.0% | PASS
+mbnet_pw13    GEMM 9x256x256       | one  35849 | tiled x3   44649 (= 27561+13344+  3744) | dbuf  41529 - 7.0% | PASS
+(CONV jobs skipped: this architecture has no OP_CONV)
+tile sweep, dscnn_pw2 GEMM 125x64x64:  2 tiles 17915  4 tiles 17915  8 tiles 17915  16 tiles 18071
+[accel] job rejected: a tile does not fit half a scratchpad (lower TILE_ROWS)
+dbuf with one 256 KB output tile -> ERROR flag set (expected)
+same job with 4 tiles -> PASS
+Part 2: completion interrupt
+polling job: 1580 STATUS polls, CPU saw DONE 21075 cycles after START   PASS
+interrupt job (dbuf): 0 polls, 1 interrupt(s), woke up 17919 cycles after START   PASS
+Part 3: bus ownership. Job dma_heavy GEMM 1024x64x16, one piece; the CPU either sleeps (WFI) or keeps
+reading memory (1 read + 1 cycle of work per loop) until the interrupt.
+DMA mode               CPU    |   job cyc  DMA wait | CPU reads   CPU txn  CPU wait  max wait | result
+block (burst 64 B)     sleep  |     60001         1 |         0         0         0         0 | PASS
+block (burst 64 B)     busy   |     60002         2 |      3170      3170     53663     26624 | PASS
+steal (burst 64 B)     sleep  |     60001         1 |         0         0         0         0 | PASS
+steal (burst 64 B)     busy   |     62063      2063 |      5231      5231     51602        26 | PASS
+steal (burst 4 B)      sleep  |    369601         1 |         0         0         0         0 | PASS
+steal (burst 4 B)      busy   |    402623     33023 |     36191     36191    330242        11 | PASS
+transparent            sleep  |     60001         1 |         0         0         0         0 | PASS
+transparent            busy   |    113665     53665 |     56832     56832         0         0 | PASS
+ALL TESTS PASSED (0 failures), simulated time 17640450 ns

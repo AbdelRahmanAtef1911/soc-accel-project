@@ -1,0 +1,5 @@
+ResNet-8 first conv as a GEMM (M=1024, K=27, N=16), 256 multipliers:
+  TPU 16x16  : 3968 cycles, result PASS
+  MAERI bw256: 2061 cycles, result PASS
+  SIGMA bw256: 4118 cycles, result PASS
+03_build_stonne: OK
