@@ -18,3 +18,6 @@ unit_test/tb_dma
 *.out
 docs/paper/*.log
 docs/proposal/*.log
+unit_test/tb_rg
+unit_test/tb_dma_rg
+unit_test/tb_dma_rg_*_output.txt

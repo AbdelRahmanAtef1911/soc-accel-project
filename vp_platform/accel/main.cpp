@@ -28,6 +28,9 @@
  * arbiter grants it with the chosen policy (rr | sensor-first | cpu-first |
  * buffer | budget), charging --bus-handover cycles on ownership changes.
  * It cannot be combined with --accel-bus-model.
+ * With --sensor-rate-ksps R the streaming sensor (accel/sensor_dma.h) is the
+ * third bus master: a FIFO of --sensor-depth samples drained by its DMA in
+ * bursts of --sensor-theta samples. Its registers are at SENSOR_BASE.
  *
  * Derived from vp/src/platform/tiny/main.cpp of RISC-V VP++ (MIT License,
  * University of Bremen and Johannes Kepler University Linz).
@@ -55,7 +58,8 @@
 #include "platform/common/options.h"
 #include "util/propertytree.h"
 
-#include "stonne_accel.h"  /* from the project's accel/ folder */
+#include "sensor_dma.h"    /* from the project's accel/ folder */
+#include "stonne_accel.h"
 
 using namespace rv32;
 namespace po = boost::program_options;
@@ -89,6 +93,8 @@ struct AccelOptions : public Options {
 	std::string bus_arbiter;
 	unsigned bus_handover = 1, bus_frag = 64;
 	bool bus_fast = false;
+	unsigned sensor_ksps = 0, sensor_bytes = 4, sensor_theta = 1, sensor_depth = 8;
+	bool cpu_fetch_private = false;
 	uint64_t bus_window = 1000, bus_budget = 2000;
 
 	AccelOptions(void) {
@@ -114,6 +120,11 @@ struct AccelOptions : public Options {
 			("bus-frag-bytes", po::value<unsigned>(&bus_frag), "project, budget policy: DNN fragment size in bytes (default 64)")
 			("bus-window-cycles", po::value<uint64_t>(&bus_window), "project, budget policy: budget window in cycles (default 1000)")
 			("bus-budget-bytes", po::value<uint64_t>(&bus_budget), "project, budget policy: DNN bytes per window (default 2000)")
+			("cpu-fetch-private", po::bool_switch(&cpu_fetch_private), "project: instruction fetches from a private 1-cycle instruction memory (TCM), not over the shared bus")
+			("sensor-rate-ksps", po::value<unsigned>(&sensor_ksps), "project: streaming sensor rate in thousand samples/s (0 = no sensor; needs --bus-arbiter)")
+			("sensor-bytes", po::value<unsigned>(&sensor_bytes), "project: bytes per sensor sample, 1..4 (default 4)")
+			("sensor-theta", po::value<unsigned>(&sensor_theta), "project: sensor DMA threshold and burst, in samples (default 1)")
+			("sensor-depth", po::value<unsigned>(&sensor_depth), "project: sensor FIFO depth in samples, >= theta (default 8)")
 			("accel-verbose", po::bool_switch(&accel_verbose), "show STONNE's console output")
 			("accel-stats", po::bool_switch(&accel_stats), "let STONNE write its stats files for every job");
 		// clang-format on
@@ -131,6 +142,16 @@ struct AccelOptions : public Options {
 			}
 			if (bus_model) {
 				std::cerr << "--bus-arbiter and --accel-bus-model are two different bus models; use one" << std::endl;
+				exit(1);
+			}
+		}
+		if (sensor_ksps) {
+			if (bus_arbiter.empty()) {
+				std::cerr << "--sensor-rate-ksps needs --bus-arbiter" << std::endl;
+				exit(1);
+			}
+			if (sensor_bytes < 1 || sensor_bytes > 4 || sensor_theta < 1 || sensor_depth < sensor_theta) {
+				std::cerr << "sensor: need 1 <= bytes <= 4, theta >= 1, depth >= theta" << std::endl;
 				exit(1);
 			}
 		}
@@ -197,7 +218,7 @@ int sc_main(int argc, char **argv) {
 	SimpleMemory mem("SimpleMemory", opt.mem_size);
 
 	ELFLoader loader(opt.input_program.c_str());
-	SimpleBus<3, 5> bus("SimpleBus", nullptr, false);
+	SimpleBus<3, 6> bus("SimpleBus", nullptr, false);
 	SyscallHandler sys("SyscallHandler");
 	DebugMemoryInterface dbg_if("DebugMemoryInterface");
 
@@ -232,7 +253,7 @@ int sc_main(int argc, char **argv) {
 		rg_bus = new RgBus("RG-Bus", opt.rg_config());
 		rg_port = new RgCpuPort("RG-CPU-Port", *rg_bus, sc_core::sc_time(10, sc_core::SC_NS));
 		accel.rgbus = rg_bus;
-		rg_bus->set_quiet(RG_SENSOR, true);  /* week 1: no sensor on the bus yet */
+		rg_bus->set_quiet(RG_SENSOR, opt.sensor_ksps == 0);  /* no sensor: it never requests */
 		/* default: the CPU synchronises before every access (exact, also for
 		 * interrupt timing). --bus-fast-path: an uncontested CPU skips it,
 		 * except for accelerator registers (their writes start DMA jobs). */
@@ -246,6 +267,21 @@ int sc_main(int argc, char **argv) {
 		          << rg_bus->cfg.handover << " cycle(s)" << std::endl;
 	}
 
+	/* course project: streaming sensor (always mapped; inactive without --sensor-rate-ksps) */
+	SensorConfig sc;
+	sc.rate_ksps = opt.sensor_ksps;
+	sc.bytes = opt.sensor_bytes;
+	sc.theta = opt.sensor_theta;
+	sc.depth = opt.sensor_depth;
+	SensorDma sensor("Sensor", sc, rg_bus);
+	if (rg_bus) {
+		rg_bus->cfg.sensor_level = [&sensor]() { return sensor.occ; };
+		rg_bus->cfg.urgent_level = 2 * opt.sensor_theta;  /* buffer policy: urgent at 2 theta */
+		if (opt.sensor_ksps)
+			std::cout << "[accel32-vp] sensor " << opt.sensor_ksps << " kS/s x " << opt.sensor_bytes << " B, theta "
+			          << opt.sensor_theta << ", depth " << opt.sensor_depth << std::endl;
+	}
+
 	std::shared_ptr<BusLock> bus_lock = std::make_shared<BusLock>();
 	core_mem_if.bus_lock = bus_lock;
 	mmu.mem = &core_mem_if;
@@ -256,6 +292,13 @@ int sc_main(int argc, char **argv) {
 	MemoryDMI dmi = MemoryDMI::create_start_size_mapping(mem.data, opt.mem_start_addr, mem.get_size());
 	InstrMemoryProxy instr_mem(dmi, core);
 	if (opt.use_instr_dmi) instr_mem_if = &instr_mem;
+	if (opt.cpu_fetch_private) {
+		/* course project: fetches from a private instruction memory (TCM), 1 cycle,
+		 * off the shared bus; loads and stores still use the bus */
+		instr_mem_if = &instr_mem;
+		instr_mem.access_delay = sc_core::sc_time(10, sc_core::SC_NS);
+		std::cout << "[accel32-vp] instruction fetch: private 1-cycle memory (off the shared bus)" << std::endl;
+	}
 	core_mem_if.dmi_add(dmi);
 	core_mem_if.dmi_enable(opt.use_data_dmi);
 
@@ -274,6 +317,7 @@ int sc_main(int argc, char **argv) {
 	bus.ports[2] = new PortMapping(opt.sys_start_addr, opt.sys_end_addr, sys);
 	bus.ports[3] = new PortMapping(opt.accel_start_addr, opt.accel_end_addr, accel);
 	bus.ports[4] = new PortMapping(opt.plic_start_addr, opt.plic_end_addr, plic);
+	bus.ports[5] = new PortMapping(SENSOR_BASE, SENSOR_BASE + SENSOR_SIZE - 1, sensor);
 	bus.mapping_complete();
 
 	/* initiators */
@@ -298,6 +342,7 @@ int sc_main(int argc, char **argv) {
 	bus.isocks[2].bind(sys.tsock);
 	bus.isocks[3].bind(accel.tsock);
 	bus.isocks[4].bind(plic.tsock);
+	bus.isocks[5].bind(sensor.tsock);
 
 	core.enable_trace(opt.trace_mode);
 
@@ -334,6 +379,7 @@ int sc_main(int argc, char **argv) {
 			std::cout << "RGBUS," << rg_master_name(m) << "," << s.grants << "," << s.busy / c << "," << s.wait / c
 			          << "," << s.max_wait / c << "," << s.bytes << std::endl;
 		}
+		sensor.report(std::cout);
 	}
 	return 0;
 }

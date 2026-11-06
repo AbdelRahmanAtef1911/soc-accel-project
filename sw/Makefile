@@ -102,3 +102,21 @@ bench_rt$(SUFFIXRT).elf: $(SRCRT) $(HDR5)
 	$(CC) $(CFLAGS) $(DEFSRT) $(LDFLAGS) $(SRCRT) $(LIBS) -o $@
 
 .PHONY: rt
+
+# ---------------- course project, stage A: one DS-CNN inference + control task + sensor ----------------
+#   make kws                  -> bench_kws.elf: release, T_acc, window statistics (bench_kws.c)
+#   options: KWS_TINF_US=5000 (DNN deadline and window), KWS_DBUF=1 (0: one-piece DMA), NTILES=4, WARMUP=16
+KWS_TINF_US ?= 5000
+KWS_DBUF    ?= 1
+WARMUP      ?= 16
+SUFFIXKWS := $(if $(filter-out 5000,$(KWS_TINF_US)),_T$(KWS_TINF_US))$(if $(filter 0,$(KWS_DBUF)),_dma)$(if $(filter-out 4,$(NTILES)),_t$(NTILES))
+DEFSKWS   := -DRT_TIMER -DRT_BG=0 -DRT_PERIOD_US=62 -DFIR_TAPS=16 -DNTILES=$(NTILES) -DKWS_TINF_US=$(KWS_TINF_US) \
+             -DKWS_DBUF=$(KWS_DBUF) -DWARMUP=$(WARMUP)
+SRCKWS := bootstrap.S trap.S runtime.c kernels.c accel_driver.c accel_ext.c irq.c bench_kws.c
+
+kws: bench_kws$(SUFFIXKWS).elf
+
+bench_kws$(SUFFIXKWS).elf: $(SRCKWS) $(HDR5) ../accel/sensor_regs.h
+	$(CC) $(CFLAGS) $(DEFSKWS) $(LDFLAGS) $(SRCKWS) $(LIBS) -o $@
+
+.PHONY: kws

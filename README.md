@@ -96,6 +96,13 @@ earlier result is still reproducible):
     `reference_results/step1_sw.csv` exactly (48/48 rows), and the step-5 model is unchanged
     (`step5c_bus_steal_bg.csv` identical).
 
+## Course project: stage A (week 2)
+
+`accel/sensor_dma.h` adds the streaming sensor (FIFO + DMA, third bus master), `sw/bench_kws.c` runs one
+DS-CNN inference from a release with the 62 us control task and the sensor active, and
+`scripts/stageA.py` sweeps 4 policies x 2 burst lengths x 5 sensor rates x 3 FIFO depths (124 runs, ~4 min).
+Results and their reading: `docs/plan/STAGE_A_RESULTS.md`, figure `reference_results/figures/fig6_stageA.png`.
+
 ## The simulated SoC
 
 ```mermaid
