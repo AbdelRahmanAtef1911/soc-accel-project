@@ -11,7 +11,8 @@ COE 407/661 System on Chip term project, KFUPM. Anchor paper: F. Muñoz-Martíne
 "STONNE: Enabling Cycle-Level Microarchitectural Simulation for DNN Inference Accelerators,"
 *IEEE Computer Architecture Letters*, 20(2), 2021.
 
-**Start here:** [`docs/Guide.pdf`](docs/Guide.pdf) (setup, every step, how to verify it) ·
+**Start here:** [`docs/Beginner_Guide.pdf`](docs/Beginner_Guide.pdf) (everything from scratch: background, the gap, every file, PhD roadmap) ·
+[`docs/Guide.pdf`](docs/Guide.pdf) (setup, every step, how to verify it) ·
 [`docs/paper/main.pdf`](docs/paper/main.pdf) (term paper) ·
 [`docs/proposal/`](docs/proposal/) (proposal) ·
 [`docs/gap/`](docs/gap/) (the research gap and its SystemC proof)
@@ -64,6 +65,37 @@ project measures the two together: `sw/bench_rt.c` adds a CLINT-timer task (62 �
 
 ![Gap experiment](reference_results/figures/fig5_gap.png)
 
+## Course project: request/grant bus (week 1)
+
+The final course project (plan: `docs/plan/Final_Project_Plan_v3.docx`) asks where shared-bus
+arbitration fails to protect a streaming sensor and a CPU deadline while the DNN accelerator runs.
+Week 1 adds the bus model it needs, next to the step-5 model (which stays unchanged, so every
+earlier result is still reproducible):
+
+- `accel/rg_bus.h`: one bus, a request/grant arbiter and three masters (CPU, sensor DMA, DNN DMA).
+  The bus is granted only when it is free; one outstanding request per master; tenures cannot be
+  interrupted; a handover of `a` cycles (default 1) is charged only when ownership changes.
+  Policy variants: `rr`, `sensor-first`, `cpu-first`, `buffer` (simplified, inspired by Roh et al.)
+  and `budget` (fragments + bytes per aligned window, simplified, inspired by AXI-REALM).
+- The CPU port synchronises the core's local time before every access and performs the access only
+  after the grant. The accelerator requests the bus for every DMA burst (or budget fragment).
+  This is exact but slow for CPU-heavy code; `--bus-fast-path` lets an uncontested CPU skip the
+  synchronisation (same arbitration, but interrupts may be taken a few cycles differently), so it is
+  used only for interrupt-free CPU-only checks.
+- Platform option: `accel32-vp --bus-arbiter rr|sensor-first|cpu-first|buffer|budget
+  [--bus-handover N] [--bus-frag-bytes B --bus-window-cycles W --bus-budget-bytes X]`.
+  The log ends with `RGBUS,...` lines (grants, busy, wait, max wait per master, in cycles).
+- Tests (`cd unit_test && make test_rg`):
+  - `tb_rg`, plan tests 1-7 with stub masters: policy order, sensor-first wait <= beta + a,
+    round-robin grant counts and busy shares, starvation, budget per aligned window, handover only
+    on ownership change, accounting.
+  - `tb_dma_rg`, plan test 8: with the CPU asleep, the part-1 cycle counts of `tb_dma` equal the
+    step-5 reference exactly with `a = 0`, and are exactly +1 cycle per job with `a = 1` (the one
+    ownership change after the CPU's START write).
+  - On the platform, a CPU-only run (`bench_sw.elf --bus-arbiter rr --bus-fast-path`) reproduces
+    `reference_results/step1_sw.csv` exactly (48/48 rows), and the step-5 model is unchanged
+    (`step5c_bus_steal_bg.csv` identical).
+
 ## The simulated SoC
 
 ```mermaid
@@ -94,16 +126,16 @@ flowchart LR
 
 | Folder | Contents |
 |---|---|
-| `accel/` | accelerator model, STONNE backend, register map, shared-bus model |
+| `accel/` | accelerator model, STONNE backend, register map, step-5 shared-bus model, project request/grant bus (`rg_bus.h`) |
 | `vp_platform/accel/` | the `accel32-vp` platform for RISC-V VP++ (CPU, bus, memory, accelerator, PLIC) |
 | `sw/` | bare-metal C: kernels, drivers, interrupt handler, benchmarks (`bench_rt.c`: gap experiment), MLPerf Tiny layer table |
-| `unit_test/` | `tb_accel` (step A) and `tb_dma` (step 5): the accelerator alone on SystemC 2.3.3 |
+| `unit_test/` | `tb_accel` (step A), `tb_dma` (step 5), `tb_rg` / `tb_dma_rg` (project bus tests): on SystemC 2.3.3 |
 | `scripts/` | one script per step, run helper, summaries, sweeps (`dse.py`, `dse5.py`), plots |
 | `setup/` | install, download (pinned commits), build STONNE, build the platform, shell setup |
 | `workloads/` | MLPerf Tiny layer extraction and the extracted layer table |
 | `patches/` | two small STONNE patches: expose the cycle count; initialise `MSwitch` link pointers (bug fix) |
 | `reference_results/` | every CSV, log and figure of the tested run |
-| `docs/` | `Guide.pdf`, `paper/` (LaTeX, IEEE format), `proposal/` (LaTeX, .docx, .pdf), `summary/`, `gap/` (research-gap argument) |
+| `docs/` | `Beginner_Guide.pdf`, `Guide.pdf`, `paper/` (LaTeX, IEEE format), `proposal/` (LaTeX, .docx, .pdf), `summary/`, `gap/` (research-gap argument) |
 
 ## Quick start
 

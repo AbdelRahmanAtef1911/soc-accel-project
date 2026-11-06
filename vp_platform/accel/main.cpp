@@ -22,6 +22,13 @@
  * ownership mode chosen with --accel-dma-mode. Without the option the bus is
  * ideal (two masters never slow each other down), as in steps 1-4.
  *
+ * Course project option --bus-arbiter POLICY uses the request/grant bus
+ * (accel/rg_bus.h) instead: the CPU synchronises and requests the bus for
+ * every access, the accelerator's DMA requests it for every burst, and the
+ * arbiter grants it with the chosen policy (rr | sensor-first | cpu-first |
+ * buffer | budget), charging --bus-handover cycles on ownership changes.
+ * It cannot be combined with --accel-bus-model.
+ *
  * Derived from vp/src/platform/tiny/main.cpp of RISC-V VP++ (MIT License,
  * University of Bremen and Johannes Kepler University Linz).
  */
@@ -78,6 +85,11 @@ struct AccelOptions : public Options {
 	bool accel_verbose = false, accel_stats = false;
 	bool bus_model = false;
 	std::string dma_mode = "block";
+	/* course project: request/grant bus */
+	std::string bus_arbiter;
+	unsigned bus_handover = 1, bus_frag = 64;
+	bool bus_fast = false;
+	uint64_t bus_window = 1000, bus_budget = 2000;
 
 	AccelOptions(void) {
 		// clang-format off
@@ -96,6 +108,12 @@ struct AccelOptions : public Options {
 			("accel-reg-latency", po::value<unsigned>(&reg_latency), "cycles per CPU access to the accelerator (default 1)")
 			("accel-bus-model", po::bool_switch(&bus_model), "step 5: CPU and DMA share one arbitrated bus (default: ideal bus)")
 			("accel-dma-mode", po::value<std::string>(&dma_mode), "step 5: DMA bus ownership with --accel-bus-model: block | steal | transparent (default block)")
+			("bus-arbiter", po::value<std::string>(&bus_arbiter), "project: request/grant bus with policy rr | sensor-first | cpu-first | buffer | budget")
+			("bus-handover", po::value<unsigned>(&bus_handover), "project: cycles charged when bus ownership changes (default 1)")
+			("bus-fast-path", po::bool_switch(&bus_fast), "project: let an uncontested CPU skip synchronisation (only for runs without interrupts, e.g. CPU-only checks)")
+			("bus-frag-bytes", po::value<unsigned>(&bus_frag), "project, budget policy: DNN fragment size in bytes (default 64)")
+			("bus-window-cycles", po::value<uint64_t>(&bus_window), "project, budget policy: budget window in cycles (default 1000)")
+			("bus-budget-bytes", po::value<uint64_t>(&bus_budget), "project, budget policy: DNN bytes per window (default 2000)")
 			("accel-verbose", po::bool_switch(&accel_verbose), "show STONNE's console output")
 			("accel-stats", po::bool_switch(&accel_stats), "let STONNE write its stats files for every job");
 		// clang-format on
@@ -105,6 +123,28 @@ struct AccelOptions : public Options {
 		Options::parse(argc, argv);
 		mem_end_addr = mem_start_addr + mem_size - 1;
 		if (rn_bw == 0) rn_bw = dn_bw;
+		if (!bus_arbiter.empty()) {
+			if (!rg_policy_parse(bus_arbiter)) {
+				std::cerr << "unknown --bus-arbiter " << bus_arbiter
+				          << " (use rr, sensor-first, cpu-first, buffer or budget)" << std::endl;
+				exit(1);
+			}
+			if (bus_model) {
+				std::cerr << "--bus-arbiter and --accel-bus-model are two different bus models; use one" << std::endl;
+				exit(1);
+			}
+		}
+	}
+
+	RgConfig rg_config() const {
+		RgConfig c;
+		c.policy = (RgPolicy)rg_policy_parse(bus_arbiter);
+		c.clk = sc_core::sc_time(10, sc_core::SC_NS);
+		c.handover = bus_handover;
+		c.frag_bytes = bus_frag;
+		c.window_cycles = bus_window;
+		c.budget_bytes = bus_budget;
+		return c;
 	}
 
 	AccelConfig accel_config() const {
@@ -185,6 +225,27 @@ int sc_main(int argc, char **argv) {
 		std::cout << "[accel32-vp] shared bus model on, DMA mode " << opt.dma_mode << std::endl;
 	}
 
+	/* course project: optional request/grant bus (CPU port + DMA requests) */
+	RgBus *rg_bus = nullptr;
+	RgCpuPort *rg_port = nullptr;
+	if (!opt.bus_arbiter.empty()) {
+		rg_bus = new RgBus("RG-Bus", opt.rg_config());
+		rg_port = new RgCpuPort("RG-CPU-Port", *rg_bus, sc_core::sc_time(10, sc_core::SC_NS));
+		accel.rgbus = rg_bus;
+		rg_bus->set_quiet(RG_SENSOR, true);  /* week 1: no sensor on the bus yet */
+		/* default: the CPU synchronises before every access (exact, also for
+		 * interrupt timing). --bus-fast-path: an uncontested CPU skips it,
+		 * except for accelerator registers (their writes start DMA jobs). */
+		rg_port->sync_lo = 0;
+		rg_port->sync_hi = ~0ull;
+		if (opt.bus_fast) {
+			rg_port->sync_lo = opt.accel_start_addr;
+			rg_port->sync_hi = opt.accel_end_addr;
+		}
+		std::cout << "[accel32-vp] request/grant bus, policy " << rg_policy_name(rg_bus->cfg.policy) << ", handover "
+		          << rg_bus->cfg.handover << " cycle(s)" << std::endl;
+	}
+
 	std::shared_ptr<BusLock> bus_lock = std::make_shared<BusLock>();
 	core_mem_if.bus_lock = bus_lock;
 	mmu.mem = &core_mem_if;
@@ -219,6 +280,9 @@ int sc_main(int argc, char **argv) {
 	if (cpu_arbiter) {
 		core_mem_if.isock.bind(cpu_arbiter->tsock);
 		cpu_arbiter->isock.bind(bus.tsocks[0]);
+	} else if (rg_port) {
+		core_mem_if.isock.bind(rg_port->tsock);
+		rg_port->isock.bind(bus.tsocks[0]);
 	} else {
 		core_mem_if.isock.bind(bus.tsocks[0]);
 	}
@@ -258,6 +322,18 @@ int sc_main(int argc, char **argv) {
 		          << (uint64_t)(shared_bus.stats[BUS_CPU].wait / c) << " cycles; DMA "
 		          << shared_bus.stats[BUS_DMA].txn << " tenures, busy " << (uint64_t)(shared_bus.stats[BUS_DMA].busy / c)
 		          << " cycles, waited " << (uint64_t)(shared_bus.stats[BUS_DMA].wait / c) << " cycles" << std::endl;
+	}
+	if (rg_bus) {
+		/* machine-readable summary: RGBUS,master,grants,busy,wait,max_wait,bytes (cycles) */
+		const uint64_t c = 10000; /* ps per cycle */
+		std::cout << "RGBUS,policy," << rg_policy_name(rg_bus->cfg.policy) << ",handover," << rg_bus->cfg.handover
+		          << ",handovers," << rg_bus->handovers << ",fast_grants," << rg_bus->fast_grants << ",sim_cycles," << sc_core::sc_time_stamp().value() / c
+		          << std::endl;
+		for (int m = 0; m < RG_MASTERS; m++) {
+			const RgStats &s = rg_bus->stats[m];
+			std::cout << "RGBUS," << rg_master_name(m) << "," << s.grants << "," << s.busy / c << "," << s.wait / c
+			          << "," << s.max_wait / c << "," << s.bytes << std::endl;
+		}
 	}
 	return 0;
 }

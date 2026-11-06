@@ -13,6 +13,7 @@ source setup/env.sh
 
 if [ -z "$SKIP_RUNS" ]; then
     (cd unit_test && make -s && make -s test && make -s test5) | grep -E "PASSED|FAIL" || true
+    (cd unit_test && make -s test_rg) | grep -E "PASSED|FAIL|test 8" || true   # project bus, tests 1-8
     bash scripts/step0_reproduce_stonne.sh
     bash scripts/step1_software.sh
     bash scripts/step2_simple_accel.sh

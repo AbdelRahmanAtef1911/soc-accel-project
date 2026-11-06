@@ -32,6 +32,10 @@
  *   shared bus  if the platform gives the model a SharedBus, every DMA
  *               transfer must win the bus first, in the ownership mode set in
  *               DMA_MODE (block, cycle stealing, transparent).
+ *
+ * Course project (rg_bus.h): if the platform gives the model an RgBus instead,
+ * every DMA burst (or budget fragment) is a request to a request/grant
+ * arbiter; DMA_MODE is ignored there.
  */
 #ifndef STONNE_ACCEL_H
 #define STONNE_ACCEL_H
@@ -51,6 +55,7 @@
 #include <vector>
 
 #include "accel_regs.h"
+#include "rg_bus.h"
 #include "shared_bus.h"
 #include "stonne_backend.h"  /* the only link to STONNE (separate .cpp file) */
 
@@ -88,7 +93,8 @@ struct StonneAccel : public sc_core::sc_module {
     AccelConfig cfg;
 
     /* optional connections (set by the platform / testbench before sc_start) */
-    SharedBus *bus = nullptr;                 /* shared-bus model; nullptr = ideal bus */
+    SharedBus *bus = nullptr;                 /* step-5 shared-bus model; nullptr = ideal bus */
+    RgBus *rgbus = nullptr;                   /* project request/grant bus (instead of bus)  */
     std::function<void(bool)> irq_line;       /* interrupt output (level)               */
 
     /* registers */
@@ -201,6 +207,7 @@ struct StonneAccel : public sc_core::sc_module {
                         tiled = dbuf || (v & CTRL_TILE) != 0;
                         irq_req = (v & CTRL_IRQ) != 0;
                         status = STATUS_BUSY;
+                        if (rgbus) rgbus->set_quiet(RG_DNN, false);  /* DMA requests may follow */
                         /* the job starts when the CPU's write actually happens */
                         start_ev.notify(delay ? *delay : sc_core::SC_ZERO_TIME);
                     }
@@ -257,7 +264,7 @@ struct StonneAccel : public sc_core::sc_module {
             case ACCEL_NOW_HI: v = (uint32_t)(now_cycles(d) >> 32); break;
             case ACCEL_JOBS: v = jobs; break;
             case ACCEL_OP: v = op; break;
-            case ACCEL_CAPS: v = cfg.caps() | (bus ? CAPS_BUS : 0); break;
+            case ACCEL_CAPS: v = cfg.caps() | ((bus || rgbus) ? CAPS_BUS : 0); break;
             case ACCEL_TILE_ROWS: v = tile_rows; break;
             case ACCEL_IRQ_STATUS: v = irq_pending; break;
             case ACCEL_CYC_TOTAL: v = cyc_total; break;
@@ -316,6 +323,18 @@ struct StonneAccel : public sc_core::sc_module {
      * selected ownership mode. Returns the elapsed cycles. */
     uint64_t dma_xfer(tlm::tlm_command cmd, uint32_t addr, uint8_t *buf, uint32_t bytes) {
         const uint64_t ideal = dma(cmd, addr, buf, bytes);
+        if (rgbus) {
+            /* one request per burst (or budget fragment); hold the bus for it */
+            const uint64_t t0 = sc_core::sc_time_stamp().value();
+            const uint32_t piece = rgbus->dnn_piece(dma_burst);
+            for (uint32_t off = 0; off < bytes; off += piece) {
+                const uint32_t n = std::min<uint32_t>(piece, bytes - off);
+                const uint64_t c = burst_cycles(n) * cfg.clk.value();
+                rgbus->acquire(RG_DNN, n, c);  /* returns at the tenure start */
+                sc_core::wait(sc_core::sc_time::from_value(c));
+            }
+            return cycles_of(sc_core::sc_time_stamp().value() - t0);
+        }
         if (!bus) {
             sc_core::wait(ideal * cfg.clk);
             return ideal;
@@ -540,6 +559,7 @@ struct StonneAccel : public sc_core::sc_module {
     /* The accelerator's control thread                                    */
     /* ------------------------------------------------------------------ */
     BusStats bus_at_start[BUS_MASTERS];
+    RgStats rg_at_start[RG_MASTERS];
 
     void job_begin() {
         polls = 0;
@@ -548,6 +568,10 @@ struct StonneAccel : public sc_core::sc_module {
         if (bus) {
             bus->stats[BUS_CPU].max_wait = 0;
             for (int m = 0; m < BUS_MASTERS; m++) bus_at_start[m] = bus->stats[m];
+        }
+        if (rgbus) {
+            rgbus->stats[RG_CPU].max_wait = 0;
+            for (int m = 0; m < RG_MASTERS; m++) rg_at_start[m] = rgbus->stats[m];
         }
     }
 
@@ -561,12 +585,19 @@ struct StonneAccel : public sc_core::sc_module {
             job_cpu_maxw = (uint32_t)cycles_of(bus->stats[BUS_CPU].max_wait);
             job_dma_wait = (uint32_t)cycles_of(bus->stats[BUS_DMA].wait - bus_at_start[BUS_DMA].wait);
         }
+        if (rgbus) {
+            job_cpu_txn = (uint32_t)(rgbus->stats[RG_CPU].grants - rg_at_start[RG_CPU].grants);
+            job_cpu_wait = (uint32_t)cycles_of(rgbus->stats[RG_CPU].wait - rg_at_start[RG_CPU].wait);
+            job_cpu_maxw = (uint32_t)cycles_of(rgbus->stats[RG_CPU].max_wait);
+            job_dma_wait = (uint32_t)cycles_of(rgbus->stats[RG_DNN].wait - rg_at_start[RG_DNN].wait);
+        }
         status = (status & STATUS_ERROR) | STATUS_DONE;
         if (irq_req) set_irq(true);
     }
 
     void run() {
         while (true) {
+            if (rgbus) rgbus->set_quiet(RG_DNN, true);  /* idle: no DMA requests until START */
             sc_core::wait(start_ev);
             const uint64_t t_start = sc_core::sc_time_stamp().value();
             cyc_load = cyc_compute = cyc_store = bytes_in = bytes_out = 0;

@@ -1,0 +1,54 @@
+
+        SystemC 2.3.3-Accellera --- Oct 27 2026 22:51:48
+        Copyright (c) 1996-2018 by all Contributors,
+        ALL RIGHTS RESERVED
+request/grant bus unit tests (handover a = 1 cycle, 2000 us simulated)
+
+Test 1: policy order, three requests at t = 0
+  [PASS] t1_rr: cpu,sensor,dnn (expected cpu,sensor,dnn)
+  [PASS] t1_sensor_first: sensor,cpu,dnn (expected sensor,cpu,dnn)
+  [PASS] t1_cpu_first: cpu,sensor,dnn (expected cpu,sensor,dnn)
+  [PASS] t1_buffer_urgent: sensor,dnn,cpu (expected sensor,dnn,cpu)
+  [PASS] t1_buffer_normal: cpu,sensor,dnn (expected cpu,sensor,dnn)
+  [PASS] t1_budget_ample: cpu,sensor,dnn (expected cpu,sensor,dnn)
+
+Test 2: sensor waiting time, DNN bursts of 1024 B (266 cycles), sensor bursts 42 cycles
+  sensor-first: 298 sensor grants, max wait 267 cycles (bound 267)
+  round-robin : 297 sensor grants, max wait 268 cycles (bound 270)
+  [PASS] sensor-first: wait <= beta + a
+  [PASS] sensor-first: the bound is reached (within 30 cycles), so the test is not trivial
+  [PASS] round-robin: wait <= beta_RR + a
+
+Test 3: round-robin
+  equal 64 B requests: grants cpu 2470, sensor 2469, dnn 2469
+  [PASS] equal-size requests: grant counts differ by at most one
+  unequal: cpu    grants    642, busy share 0.0032, expected 0.0032
+  unequal: sensor grants    642, busy share 0.1348, expected 0.1346
+  unequal: dnn    grants    641, busy share 0.8525, expected 0.8526
+  [PASS] unequal tenures: still equal grant counts (RR equalises grants)
+  [PASS] unequal tenures: busy share = len_i / sum(len_j + a), within one round
+
+Test 4: starvation under fixed priority (all masters saturating)
+  cpu-first   : cpu 200000, sensor 0, dnn 0 grants
+  sensor-first: sensor 7693, cpu 0, dnn 0 grants
+  [PASS] cpu-first: sensor and DNN starve
+  [PASS] sensor-first: CPU and DNN starve
+
+Test 5: budget, X = 1000 B per aligned window of 1000 cycles, fragments of 64 B
+  DNN bytes per aligned window: min 960, max 960; max over any sliding window 1024 (may reach 2X)
+  [PASS] every aligned window: DNN bytes <= X
+  [PASS] saturated: every full window uses the budget (> X - fragment)
+  [PASS] CPU is still served while the DNN is throttled
+
+Test 6: handover only on ownership change
+  single master: 100 bursts end at 2600 cycles (100 x 26), 0 handovers
+  [PASS] same master back to back: no handover, total = sum of bursts
+  alternating CPU/DNN: 13794 tenures, 13793 ownership changes, 13793 handovers
+  [PASS] handovers == ownership changes
+  [PASS] gap between tenures = a on an ownership change, 0 otherwise
+
+Test 7: accounting on every bus
+  [PASS] busy (clipped to the run) <= elapsed for every master and bus; stats == trace
+  [PASS] tenures never overlap
+
+ALL TESTS PASSED (0 failures)

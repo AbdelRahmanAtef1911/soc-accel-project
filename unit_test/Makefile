@@ -2,6 +2,7 @@
 #   make               build tb_accel and tb_dma (first time also compiles STONNE, ~1-3 min)
 #   make test          step 3: run tb_accel for TPU, MAERI and SIGMA
 #   make test5         step 5: run tb_dma (tiling, double buffering, interrupt, shared bus)
+#   make test_rg       course project: request/grant bus tests 1-8 (tb_rg, tb_dma_rg)
 # Paths can be overridden: make STONNE_DIR=/somewhere/stonne/stonne
 
 SYSTEMC_HOME ?= /opt/systemc
@@ -21,7 +22,7 @@ STONNE_OBJ := $(patsubst $(STONNE_DIR)/src/%.cpp,$(BUILD)/stonne/%.o,$(STONNE_SR
 CXX_STONNE := g++ -std=c++17 -O3 -w -I$(STONNE_DIR)/include -I$(STONNE_DIR)/external -I$(ACCEL)
 CXX_SC     := g++ -std=c++20 -O2 -Wall -I$(SYSTEMC_HOME)/include -I$(ACCEL)
 
-all: tb_accel tb_dma
+all: tb_accel tb_dma tb_dma_rg tb_rg
 
 $(BUILD)/stonne/%.o: $(STONNE_DIR)/src/%.cpp
 	@mkdir -p $(dir $@)
@@ -38,6 +39,19 @@ $(BUILD)/tb_accel.o: tb_accel.cpp $(ACCEL)/stonne_accel.h $(ACCEL)/accel_regs.h 
 $(BUILD)/tb_dma.o: tb_dma.cpp $(ACCEL)/stonne_accel.h $(ACCEL)/accel_regs.h $(ACCEL)/stonne_backend.h $(ACCEL)/shared_bus.h
 	@mkdir -p $(BUILD)
 	$(CXX_SC) -c $< -o $@
+
+$(BUILD)/tb_dma_rg.o: tb_dma.cpp $(ACCEL)/stonne_accel.h $(ACCEL)/accel_regs.h $(ACCEL)/stonne_backend.h $(ACCEL)/rg_bus.h
+	@mkdir -p $(BUILD)
+	$(CXX_SC) -DRG_BUS -c $< -o $@
+
+tb_dma_rg: $(BUILD)/tb_dma_rg.o $(BUILD)/stonne_backend.o $(STONNE_OBJ)
+	$(CXX_SC) $^ -L$(SYSTEMC_HOME)/lib -lsystemc -o $@
+	chmod +x $@
+
+# course project: request/grant bus unit tests (no STONNE needed)
+tb_rg: tb_rg.cpp $(ACCEL)/rg_bus.h
+	$(CXX_SC) $< -L$(SYSTEMC_HOME)/lib -lsystemc -o $@
+	chmod +x $@
 
 tb_accel: $(BUILD)/tb_accel.o $(BUILD)/stonne_backend.o $(STONNE_OBJ)
 	$(CXX_SC) $^ -L$(SYSTEMC_HOME)/lib -lsystemc -o $@
@@ -58,7 +72,19 @@ test5: tb_dma
 	LD_LIBRARY_PATH=$(SYSTEMC_HOME)/lib ./tb_dma maeri 256 256
 	LD_LIBRARY_PATH=$(SYSTEMC_HOME)/lib ./tb_dma tpu 256
 
-clean:
-	rm -rf $(BUILD) tb_accel tb_dma parameters output_stats_* StonneMapper_output_* mRNA_output_*
+# course project, week 1: arbiter tests 1-7, then test 8 (single master on the
+# request/grant bus gives the step-5 part-1 cycle counts: identical with handover
+# a = 0, and exactly +a per job with a = 1 - the one ownership change after the
+# CPU's START write)
+test_rg: tb_rg tb_dma_rg
+	LD_LIBRARY_PATH=$(SYSTEMC_HOME)/lib ./tb_rg
+	[ -d parameters ] || cp -r $(STONNE_DIR)/parameters .
+	LD_LIBRARY_PATH=$(SYSTEMC_HOME)/lib ./tb_dma_rg maeri 256 256 0 > tb_dma_rg_a0_output.txt 2>&1
+	LD_LIBRARY_PATH=$(SYSTEMC_HOME)/lib ./tb_dma_rg maeri 256 256 1 > tb_dma_rg_a1_output.txt 2>&1
+	LD_LIBRARY_PATH=$(SYSTEMC_HOME)/lib ./tb_dma_rg maeri 256 256 1 fast > tb_dma_rg_a1_fast_output.txt 2>&1
+	python3 check_rg_regression.py ../reference_results/unit_test5_output.txt tb_dma_rg_a0_output.txt tb_dma_rg_a1_output.txt tb_dma_rg_a1_fast_output.txt
 
-.PHONY: all test test5 clean
+clean:
+	rm -rf $(BUILD) tb_accel tb_dma tb_dma_rg tb_rg tb_dma_rg_a0_output.txt tb_dma_rg_a1_output.txt tb_dma_rg_a1_fast_output.txt parameters output_stats_* StonneMapper_output_* mRNA_output_*
+
+.PHONY: all test test5 test_rg clean

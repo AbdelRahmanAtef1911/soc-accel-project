@@ -29,6 +29,9 @@
  *           transparent   the CPU never waits, the DMA gets slower
  *
  * usage: ./tb_dma [maeri|tpu|sigma] [num_pe] [dn_bw]     (CONV jobs need maeri)
+ * Built with -DRG_BUS (tb_dma_rg) it runs parts 1-2 on the request/grant bus;
+ * an optional 4th argument sets the handover cycles (default 1), and a 5th
+ * argument "fast" enables the uncontested-CPU fast path (must not change results).
  */
 #include <systemc>
 #include <tlm>
@@ -396,6 +399,27 @@ int sc_main(int argc, char **argv) {
     }
     const sc_time clk(10, SC_NS);
 
+#ifdef RG_BUS
+    /* course project: same test on the request/grant bus (rg_bus.h); part 3
+     * (step-5 DMA ownership modes) does not apply and is skipped */
+    RgConfig rc;
+    rc.clk = clk;
+    if (argc > 4) rc.handover = atoi(argv[4]);  /* tb_dma_rg arch pe dn_bw handover */
+    RgBus bus("rgbus", rc);
+    Driver drv("cpu");
+    RgCpuPort cpu_port("cpu_port", bus, clk);
+    Router router("router");
+    StonneAccel acc("accel", cfg);
+    Memory mem("mem", 1 << 20, clk);
+    acc.rgbus = &bus;
+    const bool fast = argc > 5 && std::string(argv[5]) == "fast";
+    if (fast) {  /* as on the platform: no sensor, accelerator registers always synchronise */
+        bus.set_quiet(RG_SENSOR, true);
+        cpu_port.sync_lo = ACCEL_BASE;
+        cpu_port.sync_hi = ACCEL_BASE + ACCEL_SIZE - 1;
+    }
+    printf("bus: request/grant (rg_bus.h), policy %s, handover %u cycle\n", rg_policy_name(rc.policy), rc.handover);
+#else
     SharedBus bus;
     Driver drv("cpu");
     BusArbiterPort cpu_port("cpu_port", bus, BUS_CPU, clk);
@@ -403,6 +427,7 @@ int sc_main(int argc, char **argv) {
     StonneAccel acc("accel", cfg);
     Memory mem("mem", 1 << 20, clk);
     acc.bus = &bus;
+#endif
     acc.irq_line = [&drv](bool on) { drv.irq(on); };
     drv.mem = &mem;
     drv.acc = &acc;
