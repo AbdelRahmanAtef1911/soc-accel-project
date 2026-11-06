@@ -81,3 +81,24 @@ bench_dma$(SUFFIX5).elf: $(SRC5) $(HDR5)
 	$(CC) $(CFLAGS) $(DEFS5) $(LDFLAGS) $(SRC5) $(LIBS) -o $@
 
 .PHONY: all acc conv dse hello clean dma
+
+# ---------------- gap experiment: periodic real-time task during inference ----------------
+#   make rt                   -> bench_rt.elf: 62 us timer task (16-tap FIR) + every layer on the
+#                                accelerator (conv partition, WFI), modes DMA and DBUF
+#   options: RT_PERIOD_US=62, FIR_TAPS=16, RT_BG=1 (CPU busy with background work instead of WFI),
+#            NTILES=4, RT_CHECK=0 (1: compare with the CPU), ONLY_MODEL=dscnn
+RT_PERIOD_US ?= 62
+FIR_TAPS     ?= 16
+RT_CHECK     ?= 0
+RT_BG        ?= 0
+SUFFIXRT := $(if $(filter 1,$(RT_BG)),_bg)$(if $(filter-out 62,$(RT_PERIOD_US)),_p$(RT_PERIOD_US))$(if $(filter-out 16,$(FIR_TAPS)),_f$(FIR_TAPS))$(if $(filter-out 4,$(NTILES)),_t$(NTILES))$(if $(filter 1,$(RT_CHECK)),_check)$(if $(ONLY_MODEL),_$(ONLY_MODEL))
+DEFSRT   := -DRT_TIMER -DRT_BG=$(RT_BG) -DRT_PERIOD_US=$(RT_PERIOD_US) -DFIR_TAPS=$(FIR_TAPS) -DNTILES=$(NTILES) -DCHECK=$(RT_CHECK) \
+            $(if $(ONLY_MODEL),-DONLY_MODEL=\"$(ONLY_MODEL)\")
+SRCRT := bootstrap.S trap.S runtime.c kernels.c accel_driver.c accel_ext.c irq.c bench_rt.c
+
+rt: bench_rt$(SUFFIXRT).elf
+
+bench_rt$(SUFFIXRT).elf: $(SRCRT) $(HDR5)
+	$(CC) $(CFLAGS) $(DEFSRT) $(LDFLAGS) $(SRCRT) $(LIBS) -o $@
+
+.PHONY: rt

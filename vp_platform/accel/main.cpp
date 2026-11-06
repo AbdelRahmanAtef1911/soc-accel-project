@@ -9,7 +9,7 @@
  *
  *   address map
  *   0x0000_0000 - 0x01FF_FFFF  main memory (32 MB)
- *   0x0200_0000 - 0x0200_FFFF  CLINT
+ *   0x0200_0000 - 0x0200_FFFF  CLINT (simulation time, mtime in us)
  *   0x0201_0000 - 0x0201_03FF  syscall device
  *   0x0C00_0000 - 0x0CFF_FFFF  PLIC (FE310 layout), accelerator = source 1
  *   0x1000_0000 - 0x103F_FFFF  accelerator (accel/accel_regs.h)
@@ -37,7 +37,7 @@
 #include "core/common/debug_memory.h"
 #include "core/common/gdb-mc/gdb_runner.h"
 #include "core/common/gdb-mc/gdb_server.h"
-#include "core/common/real_clint.h"
+#include "core/common/clint.h"
 #include "core/rv32/elf_loader.h"
 #include "core/rv32/iss.h"
 #include "core/rv32/mem.h"
@@ -161,8 +161,10 @@ int sc_main(int argc, char **argv) {
 	SyscallHandler sys("SyscallHandler");
 	DebugMemoryInterface dbg_if("DebugMemoryInterface");
 
-	std::vector<clint_interrupt_target *> clint_targets{&core};
-	RealCLINT clint("CLINT", clint_targets);
+	/* simulation-time CLINT (mtime in microseconds of SystemC time), so timer
+	 * interrupts are deterministic; tiny32-vp uses the wall-clock RealCLINT */
+	CLINT<1> clint("CLINT");
+	clint.target_harts[0] = &core;
 
 	StonneAccel accel("Accelerator", opt.accel_config());
 	FE310_PLIC<1, 64, 96, 32> plic("PLIC");

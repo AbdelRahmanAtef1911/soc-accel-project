@@ -20,6 +20,12 @@ static void die(const char *msg, uint32_t v) {
 /* called from trap.S with the caller-saved registers already saved */
 void trap_handler(void) {
     uint32_t cause = csr_read(mcause);
+#ifdef RT_TIMER /* gap experiment (bench_rt.c): periodic timer task */
+    if (cause == MCAUSE_MTI) {
+        rt_timer_isr();
+        return;
+    }
+#endif
     if (cause != MCAUSE_MEI) die("ERROR: unexpected trap, mcause=", cause);
 
     uint64_t t = now_cycles();

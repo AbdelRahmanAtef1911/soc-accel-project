@@ -20,13 +20,22 @@ fetch() { # fetch <url> <dir> <commit>
     echo "$2 at $(git -C "$2" rev-parse --short HEAD)"
 }
 
-# 1. STONNE + the one-line patch that exposes the cycle count
+# 1. STONNE + two small patches: expose the cycle count, initialise MSwitch links
 fetch https://github.com/stonne-simulator/stonne.git "$EXT/stonne" "$STONNE_COMMIT"
 if git -C "$EXT/stonne" apply --check "$PROJ/patches/stonne-accel.patch" 2>/dev/null; then
     git -C "$EXT/stonne" apply "$PROJ/patches/stonne-accel.patch"
     echo "STONNE patched (getNCycles)"
 else
     grep -q getNCycles "$STONNE_DIR/include/STONNEModel.h" && echo "STONNE already patched"
+fi
+# STONNE bug fix: MSwitch left its link pointers uninitialised (the last
+# multiplier switch has no forwarding link), which could abort a run with
+# "Assertion pck->get_data_type()==IACTIVATION failed" depending on heap layout
+if git -C "$EXT/stonne" apply --check "$PROJ/patches/stonne-mswitch-init.patch" 2>/dev/null; then
+    git -C "$EXT/stonne" apply "$PROJ/patches/stonne-mswitch-init.patch"
+    echo "STONNE patched (MSwitch link pointers initialised)"
+else
+    grep -q "inputForwardingConnection = nullptr" "$STONNE_DIR/src/MSwitch.cpp" && echo "STONNE MSwitch fix already applied"
 fi
 
 # 2. RISC-V VP++ and the two submodules the build needs (vendored SystemC, mpc)

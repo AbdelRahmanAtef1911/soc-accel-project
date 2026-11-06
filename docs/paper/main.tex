@@ -41,7 +41,7 @@ This work measures these costs together. It integrates the STONNE accelerator si
 \item \textbf{RQ3 (data movement):} how much do CPU copying versus DMA, and the DMA width, change the result?
 \item \textbf{RQ4 (DMA and bus design):} once computation is offloaded, how much do double buffering, a completion interrupt, and the DMA's bus-ownership mode and burst size change end-to-end time and the CPU time left for other work?
 \end{itemize}
-The contributions are: (i) a SystemC/TLM-2.0 accelerator model with STONNE timing that compiles unchanged against SystemC 2.3.3 and 3.0 and runs inside RISC-V VP++; (ii) an end-to-end, per-phase breakdown of all 48 MLPerf Tiny layers for three accelerator designs and two HW/SW partitions; (iii) a design-space exploration of mesh size, network bandwidth, DMA width and weight sparsity; and (iv) a DMA and bus study with tiling and double buffering, an interrupt path through a PLIC, and a shared-bus contention model with burst, cycle-stealing and transparent DMA. All code, scripts and results are open source and the runs are deterministic.
+The contributions are: (i) a SystemC/TLM-2.0 accelerator model with STONNE timing that compiles unchanged against SystemC 2.3.3 and 3.0 and runs inside RISC-V VP++; (ii) an end-to-end, per-phase breakdown of all 48 MLPerf Tiny layers for three accelerator designs and two HW/SW partitions; (iii) a design-space exploration of mesh size, network bandwidth, DMA width and weight sparsity; and (iv) a DMA and bus study with tiling and double buffering, an interrupt path through a PLIC, and a shared-bus contention model with burst, cycle-stealing and transparent DMA. All code, scripts and results are open source at \url{https://github.com/AbdelRahmanAtef1911/soc-accel-project}, and the runs are deterministic.
 
 %=====================================================================
 \section{Background and Related Work}
@@ -221,7 +221,7 @@ The software baseline is plain C on a slow, cacheless core, so absolute speedups
 
 %=====================================================================
 \section{Conclusion}
-A SystemC/TLM-2.0 accelerator with STONNE timing was integrated into a RISC-V virtual prototype and measured end to end on all MLPerf Tiny layers. Offloading GEMMs alone leaves the CPU work dominant; native convolution in the accelerator gives two to three orders of magnitude over software and turns the problem into data movement; and then double buffering, the interrupt, the bus-ownership mode and especially the burst size determine both the inference time and how much of the CPU remains for other work. The setup, scripts and reference results are public and reproduce bit-exactly.
+A SystemC/TLM-2.0 accelerator with STONNE timing was integrated into a RISC-V virtual prototype and measured end to end on all MLPerf Tiny layers. Offloading GEMMs alone leaves the CPU work dominant; native convolution in the accelerator gives two to three orders of magnitude over software and turns the problem into data movement; and then double buffering, the interrupt, the bus-ownership mode and especially the burst size determine both the inference time and how much of the CPU remains for other work. The setup, scripts and reference results are public at \url{https://github.com/AbdelRahmanAtef1911/soc-accel-project} and reproduce bit-exactly.
 
 \bibliographystyle{IEEEtran}
 \bibliography{refs}

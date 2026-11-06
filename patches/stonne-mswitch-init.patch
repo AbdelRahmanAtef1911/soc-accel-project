@@ -1,0 +1,20 @@
+diff --git a/stonne/src/MSwitch.cpp b/stonne/src/MSwitch.cpp
+index f1e402b8..552def96 100644
+--- a/stonne/src/MSwitch.cpp
++++ b/stonne/src/MSwitch.cpp
+@@ -26,6 +26,15 @@ Unit(id, name){
+     this->psum_fifo = new Fifo(buffers_capacity);
+     //End parameters initialization    
+ 
++    //Links: set later by the networks. The last multiplier switch never gets
++    //an input forwarding link (MSNetwork::setPhysicalConnection), so its
++    //pointer must start as null; left uninitialised, receive() could mistake
++    //the distribution link for it.
++    this->outputConnection = nullptr;
++    this->inputConnection = nullptr;
++    this->outputForwardingConnection = nullptr;
++    this->inputForwardingConnection = nullptr;
++
+     //Signals
+     this->inputForwardingEnabled = false;
+     this->outputForwardingEnabled = false;

@@ -16,6 +16,12 @@
 #define MSTATUS_MIE (1u << 3)
 #define MIE_MEIE    (1u << 11)
 #define MCAUSE_MEI  0x8000000Bu   /* machine external interrupt */
+#define MCAUSE_MTI  0x80000007u   /* machine timer interrupt (CLINT)   */
+#define MIE_MTIE    (1u << 7)
+
+#ifdef RT_TIMER
+void rt_timer_isr(void);  /* bench_rt.c: the periodic real-time task */
+#endif
 
 #define csr_read(reg) ({ uint32_t v_; asm volatile("csrr %0, " #reg : "=r"(v_)); v_; })
 #define csr_write(reg, val) asm volatile("csrw " #reg ", %0" ::"r"((uint32_t)(val)))
