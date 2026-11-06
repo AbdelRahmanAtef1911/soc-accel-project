@@ -1,0 +1,20 @@
+
+        SystemC 3.0.1-Accellera --- Oct 27 2026 23:10:55
+        Copyright (c) 1996-2024 by all Contributors,
+        ALL RIGHTS RESERVED
+[Options] Info: switch 'intercept-syscalls' also activates 'error-on-zero-traphandler' if unset.
+[accel] MAERI, 256 PEs, dn_bw 256, DMA 4 B/cycle, burst 64 B + 10 cycles
+[accel32-vp] request/grant bus, policy cpu-first, handover 1 cycle(s)
+[accel32-vp] sensor 25000 kS/s x 4 B, theta 32, depth 40
+[accel32-vp] instruction fetch: private 1-cycle memory (off the shared bus)
+CSV,tinf_us,t_acc,dnn_met,layers,rt_rel,rt_miss,rt_skip,rt_max,rt_lat,sen_rate_ksps,sen_theta,sen_depth,sen_ovf_win,sen_peak_win,sen_maxwait,burst,dbuf,check
+CSV,5000,289134,1,10,80,0,0,1333,927,25000,32,40,13307,40,28,64,1,SKIP
+LAYERS,27380,58900,90794,122304,154174,186485,218238,249916,281794,287796
+DONE
+[accel32-vp] simulated time 10791120 ns
+RGBUS,policy,cpu-first,handover,1,handovers,15870,fast_grants,0,sim_cycles,1079112
+RGBUS,cpu,28210,28482,174032,43,55901
+RGBUS,sensor,7699,323358,30333,28,985472
+RGBUS,dnn,5979,155425,72899,49,382538
+SENSOR,rate_ksps,25000,bytes,4,theta,32,depth,40,arrivals,269778,drains,7699,ovf_total,23381,ovf_window,13307,peak_total,40,peak_window,40,maxwait_window,28,maxwait_total,28
+WINDOW,t0_cycles,554100,cycles,500000,cpu_busy,10175,sensor_busy,146622,dnn_busy,155425,handovers,8751,occupancy,0.624444

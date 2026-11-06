@@ -1,0 +1,2 @@
+tinf_us,t_acc,dnn_met,layers,rt_rel,rt_miss,rt_skip,rt_max,rt_lat,sen_rate_ksps,sen_theta,sen_depth,sen_ovf_win,sen_peak_win,sen_maxwait,burst,dbuf,check
+5000,147585,1,10,71,9,9,10908,7680,800,64,65,1,65,254,1024,1,SKIP

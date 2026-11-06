@@ -103,6 +103,14 @@ DS-CNN inference from a release with the 62 us control task and the sensor activ
 `scripts/stageA.py` sweeps 4 policies x 2 burst lengths x 5 sensor rates x 3 FIFO depths (124 runs, ~4 min).
 Results and their reading: `docs/plan/STAGE_A_RESULTS.md`, figure `reference_results/figures/fig6_stageA.png`.
 
+## Course project: stage B
+
+`scripts/stageB.py` sweeps the sensor threshold, finds the exact minimum FIFO depth for 240 (policy, burst,
+rate, threshold) points by bisection (912 runs), adds 256-B bursts and the budget + fragmentation policy, and
+applies the research-gap test of the plan. Main result: the four arbitration policies give minimum FIFO depths
+within one sample of each other; the DNN burst length, the sensor threshold and the per-burst overhead decide the
+outcome. Details: `docs/plan/STAGE_B_RESULTS.md`; figures `fig7_stageB_minfifo.png`, `fig8_stageB_tradeoff.png`.
+
 ## The simulated SoC
 
 ```mermaid
