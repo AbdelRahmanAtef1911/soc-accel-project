@@ -111,6 +111,12 @@ applies the research-gap test of the plan. Main result: the four arbitration pol
 within one sample of each other; the DNN burst length, the sensor threshold and the per-burst overhead decide the
 outcome. Details: `docs/plan/STAGE_B_RESULTS.md`; figures `fig7_stageB_minfifo.png`, `fig8_stageB_tradeoff.png`.
 
+## Course project: term paper (week 3)
+
+`docs/term_paper/` holds the paper (IEEE format, `main.tex`, `refs.bib`, PDF) and `make_figures.py`, which
+draws its four figures from `reference_results/stageB_summary.csv`. Rebuild: `cd docs/term_paper &&
+python3 make_figures.py && latexmk -pdf main.tex`.
+
 ## The simulated SoC
 
 ```mermaid
